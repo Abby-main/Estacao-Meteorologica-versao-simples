@@ -1,0 +1,533 @@
+/*
+Copyright (c) 2023 Arthur Willian Marques
+Copyright (c) 2023 Abigail Willian Marques
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+//Version 1.8
+
+//PS: Text is writen in portuguese because i designed this for my school to use.
+//PS 2: I will optimize it later.
+
+//sensors...
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
+#define DHTPIN 4
+#define DHTTYPE    DHT11 
+DHT_Unified dht(DHTPIN, DHTTYPE);
+
+const int ledBlue = 8;
+const int ledGreen = 9;
+const int ledRed = 10;
+
+const int buzzerPin = 5;
+
+const float mmPerPulse = 0.499; // need calibration <-------
+float mmTotal = 0;
+float mmPerHour = 0;
+const int pluvSensor = 6;
+int pluvState = 0;
+int previousState = 0;
+
+int sensor = 2;
+const int recordTime = 1;
+int interruptCounter;
+float windSpeed;
+
+int potPin = A0;
+int data = 0;
+
+int mode = 0;
+
+//time...
+unsigned long time = 0;
+unsigned long seconds = 0;
+long minutes = 0;
+long quarters = 0;
+long halves = 0;
+long hours = 0;
+int days = 0;
+
+unsigned long lastMinutes = 0;
+long lastQuarters = 0;
+long lastHalves = 0;
+int lastHours = 0;
+int lastDays = 0;
+
+void setup() {
+
+  Serial.begin(9600);
+
+  Serial.println(F("Bem vindo, iniciando sistemas :) "));
+  Serial.println();
+  delay(300);
+
+
+  Serial.println(F("              (&&(              *%&&*"));
+  Serial.println(F("              /&*/&&,         /&%,(&*"));
+  Serial.println(F("              *&/  .#&(     /&#.  (&*                                       .   .%#         &%.   ."));
+  Serial.println(F("              ,&(    *%&/ *&&/.   /&*                                       #&/ *&*         /&* #&/"));
+  Serial.println(F("              .&%%&&#,.     .,/%&&%&/                                    **, .%&&%           %&&%,*/##"));
+  Serial.println(F("         ....      (&@&%(//(#&&&#.   *&&@@@@@@@&&&)                        .*(%&&%. ,    ./ ,&&#/,"));
+  Serial.println(F("(&&%******,*&%. /&%*            ,%&( ,&%.     (&%.      .,,**,..                .(&&&*   ,&&&("));
+  Serial.println(F("   *%&/   .%%,,&%.                .#&*.%%*/(%&%/,   ,%&%/,....*(%&(*(&&%#(((#%&&&#/#&(   (&(*,..     /&%*"));
+  Serial.println(F("      /&&(#&,,&#                    (&%&#*.    ./&&%&,          ,%&(.            (&#,#&#&%. *%&/..,%&%*****,"));
+  Serial.println(F("        */  /&*                    *&(           .%&*         ,%,                 #&%&&&#/*/&&/.../&%."));
+  Serial.println(F("            *&/                 .,/&#*,.           *.                             .%&/ *&%,. ..     ,%&("));
+  Serial.println(F("       ,%&&#.#&*           ,#&&(*,....,/#&%.        ####   ####  ##### #    #     .#&   /&&&(*         ."));
+  Serial.println(F("     /&%, ,&#./&#        /&%.                      #      #    # #     ##  ##    .%%   /(.#&%#(/*."));
+  Serial.println(F("  .&&(     .%&. /&&#.  .&%.                         ####  #    # ####  # ## #    .%%%&&@&(.%&&&*  .*"));
+  Serial.println(F(" (&&&&&&&&&%%%,*(*../#%&&,                              # #    # #     #    #            ,%&( ,&%,"));
+  Serial.println(F("              .%#,/#&&%&#                  .%&%/,  #####   ####  ##### #    #              *&/  *%,"));
+  Serial.println(F("               %#    /&&%.                /&#  .*%&&.                                       %#"));
+  Serial.println(F("               %#  (&%.*&#               %&,        .#&*                                   /&/"));
+  Serial.println(F("               %#(&(     #&(.          *&%.       (&%,                                   ,%&*"));
+  Serial.println(F("               (%(         *#&%(*.....(&/      *&&(..................................*(&&("));
+  Serial.println(F("                                    ,*/*      .%&(*/***********************************."));
+  Serial.println(F("                                    /&(     *@%(.                            /."));
+  Serial.println(F("                                  .%%,         ./#&&#.          (#.        *&%&#"));
+  Serial.println(F("                                 .(%&%/,         /&%.          *&%(&/      %&* .%%."));
+  Serial.println(F("                                       .*#&#.   /&#.          #&/  ,&%.   #&,   .#&"));
+  Serial.println(F("                                        .%&*  /&%.          .%&,     #&,  (&(   *&%"));
+  Serial.println(F("                                       .%&. /&#.           .%%        (&,   *#%#/."));
+  Serial.println(F("                                      .&# /&#.             ,&(        *&("));
+  Serial.println(F("                                     *&#/&%.                /&%.     (&#"));
+  Serial.println(F("                                    /&&&#                    .#&&&&%,"));
+  Serial.println(F("                                  *&&%."));
+  Serial.println();
+
+  delay(500);
+
+  Serial.println(F("########################################################################"));
+  Serial.println(F("#  Sistema Operacional da Estação Meteorológica (SOEM) V2.             #"));
+  Serial.println(F("# -------------------------------------------------------------------- #"));
+  Serial.println(F("#  Seleção do modo de cronometragem da estação                         #"));
+  Serial.println(F("#  Digite o número para seu respectivo modo e aperte a tecla ENTER:    #"));
+  Serial.println(F("#  Modo 1: 1 minuto, digite 1.                                         #"));
+  Serial.println(F("#  Modo 2: 15 minutos, digite 2.                                       #"));
+  Serial.println(F("#  Modo 3: 30 minutos, digite 3.                                       #"));
+  Serial.println(F("#  Modo 4: 1 hora, digite 4.                                           #"));
+  Serial.println(F("#  Modo 5: tempo real, digite 5.                                       #"));
+  Serial.println(F("#  Modo 6: manual de utilização, digite 6.                             #"));
+  Serial.println(F("#  Easter egg, digite 9.                                               #"));
+  Serial.println(F("#  Para alterar o modo reinicie a estação a qualquer momento.          #"));
+  Serial.println(F("########################################################################"));
+
+  mode = 0;
+
+ while (Serial.available() == 0) {
+}
+
+  int menuChoice = Serial.parseInt();
+
+  switch (menuChoice) {
+    case 1:
+      Serial.println("  Modo 1 selecionado com sucesso. ");
+      mode = 1;
+      break;
+
+    case 2:
+      Serial.println("  Modo 2 selecionado com sucesso. ");
+      mode = 2;
+      break;
+    
+    case 3:
+      Serial.println("  Modo 3 selecionado com sucesso. ");
+      mode = 3;
+      break;
+
+    case 4:
+      Serial.println("  Modo 4 selecionado com sucesso. ");
+      mode = 4;
+      break;
+
+    case 5:
+      Serial.println("  Modo 5 selecionado com sucesso. ");
+      Serial.println("  Modo tempo real uhuuuul");
+      mode = 5;
+      break;
+
+    case 6:
+    Serial.println("  Modo 6 selecionado com sucesso. ");
+    Serial.println(F("######################################################################"));
+    Serial.println(F("#  SEÇÃO DO MANUAL DE INSTRUÇÕES                                     #"));
+    Serial.println(F("# ------------------------------------------------------------------ #"));
+    Serial.println(F("#  A estação meteorologica opera de forma semi autônoma.             #"));
+    Serial.println(F("#  É necessário apenas selecionar o modo desejado.                   #"));
+    Serial.println(F("#  Para retornar ao menu de seleção de modos é necessário reiniciar. #"));
+    Serial.println(F("#  Para reiniciar apenas desligue o cabo USB e ligue novamente.      #"));
+    Serial.println(F("#  É necessário reiniciar a estação à cada 30 dias.                  #"));
+    Serial.println(F("#  Qualquer dúvida adicional entre em contato comigo ~~              #"));
+    Serial.println(F("#  Email: ari_main@protonmain.com                                    #"));
+    Serial.println(F("######################################################################"));
+      break;
+      
+    case 7:
+      Serial.println("  Modo 7 selecionado com sucesso. ");
+      Serial.println("  Modo dev teste");
+      mode = 7;
+      break;
+
+    case 9:
+    Serial.println(F("######################################################################"));
+    Serial.println(F("#  Modo 9 | O easter egg selecionado :3                              #"));
+    Serial.println(F("# ------------------------------------------------------------------ #"));
+    Serial.println(F("#  Bem vindo a seção de easter egg :p                                #"));
+    Serial.println(F("#  Toma um coração pra você por ter vindo até aqui <3                #"));
+    Serial.println(F("#  Essa estação foi totalmente programada por mim                    #"));
+    Serial.println(F("#  Por favor cuide bem dela e com carinho :p                         #"));
+    Serial.println(F("#  Desculpa n sei mto oq falar ent xau                               #"));
+    Serial.println(F("######################################################################"));
+      break;
+
+    default:
+      Serial.println("  Aguardando sua seleção...");
+  }
+
+  dht.begin();
+
+  pinMode(ledBlue, OUTPUT);
+  pinMode(ledGreen, OUTPUT);
+  pinMode(ledRed, OUTPUT);
+
+  pinMode(buzzerPin, OUTPUT);
+
+  pinMode(pluvSensor, INPUT);
+
+  pinMode(potPin, INPUT);
+
+  pinMode(sensor, INPUT);
+  
+  digitalWrite(buzzerPin, HIGH);
+  digitalWrite(ledGreen, LOW);
+  digitalWrite(ledBlue, LOW);
+  digitalWrite(ledRed, HIGH);
+  delay(1000);
+  digitalWrite(buzzerPin, LOW);
+
+}
+
+void loop() {
+  
+  time = millis();
+
+  seconds = time / 1000;
+  minutes = seconds / 60;
+  quarters = minutes / 15;
+  halves = minutes / 30;
+  hours = minutes / 60;
+  days = hours / 24;
+
+  pluvState = digitalRead(pluvSensor);
+  if (pluvState != previousState) {
+    mmTotal = mmTotal + mmPerPulse;
+  }
+    delay(25);
+  previousState = pluvState;
+  if (days != lastDays) {
+
+    lastDays++;
+    mmTotal = 0; // reset every 24 hours
+  }
+
+  digitalWrite(ledRed, LOW);
+  digitalWrite(ledBlue, HIGH);
+  delay(40);
+  digitalWrite(ledBlue, LOW);
+  digitalWrite(ledRed, LOW);
+  delay(10);
+  digitalWrite(ledRed, HIGH);
+  delay(100);
+
+  int data = analogRead(potPin);
+
+  sensors_event_t event;
+
+    measure();
+
+  if(mode == 1 && (minutes != lastMinutes)){
+
+    lastMinutes++;
+
+  sensors_event_t event;
+  dht.temperature().getEvent(&event);
+  Serial.print(F("  - Temperatura: "));
+  Serial.print(event.temperature);
+  Serial.println(F("°C"));
+  dht.humidity().getEvent(&event);
+  Serial.print(F("  - Humidade: "));
+  Serial.print(event.relative_humidity);
+  Serial.println(F("%"));
+
+  Serial.print("  - mm total de chuva:");
+  Serial.println(mmTotal);
+
+   Serial.print("  - Velocidade do vento: ");
+  Serial.print(windSpeed);
+  Serial.println(" km/h ");
+
+Serial.print("  - Direção do vento: ");
+data = analogRead(potPin);
+  if(data < 255){
+  Serial.println("N");
+}
+if(data > 255 && data < 600){
+  Serial.println("O");
+}
+if(data > 600 && data < 900){
+  Serial.println("S");
+}
+if(data > 900){
+  Serial.println("L");
+}
+
+  Serial.print("  - Tempo atual em segundos:");
+  Serial.println(seconds);
+  Serial.print("  - Tempo atual em minutos:");
+  Serial.println(minutes);
+  Serial.print("  - Tempo atual em horas:");
+  Serial.println(hours);
+  Serial.print("  - Tempo atual em dias:");
+  Serial.println(days);
+  Serial.println("|---------------------------|");
+  
+  digitalWrite(ledRed, LOW);
+  digitalWrite(ledGreen, HIGH);
+  delay(75);
+  digitalWrite(ledGreen, LOW);
+
+  }
+  if(mode == 2 && (quarters != lastQuarters)){
+
+    lastQuarters++;
+
+  sensors_event_t event;
+  dht.temperature().getEvent(&event);
+  Serial.print(F("  - Temperatura: "));
+  Serial.print(event.temperature);
+  Serial.println(F("°C"));
+  dht.humidity().getEvent(&event);
+  Serial.print(F("  - Humidade: "));
+  Serial.print(event.relative_humidity);
+  Serial.println(F("%"));
+
+  Serial.print("  - mm total de chuva:");
+  Serial.println(mmTotal);
+
+    Serial.print("  - Velocidade do vento: ");
+  Serial.print(windSpeed);
+  Serial.println(" km/h ");
+
+  Serial.print("  - Direção do vento: ");
+data = analogRead(potPin);
+  if(data < 255){
+  Serial.print("N   ");
+  Serial.println(data);
+}
+if(data > 255 && data < 600){
+  Serial.println("O");
+}
+if(data > 600 && data < 900){
+  Serial.println("S");
+}
+if(data > 900){
+  Serial.println("L");
+}
+
+  Serial.print("  - Tempo atual em segundos:");
+  Serial.println(seconds);
+  Serial.print("  - Tempo atual em minutos:");
+  Serial.println(minutes);
+  Serial.print("  - Tempo atual em horas:");
+  Serial.println(hours);
+  Serial.print("  - Tempo atual em dias:");
+  Serial.println(days);
+  Serial.println("|---------------------------|");
+  
+  digitalWrite(ledRed, LOW);
+  digitalWrite(ledGreen, HIGH);
+  delay(75);
+  digitalWrite(ledGreen, LOW);
+  }
+  if(mode == 3 && (halves != lastHalves)){
+
+    lastHalves++;
+
+  sensors_event_t event;
+  dht.temperature().getEvent(&event);
+  Serial.print(F("  - Temperatura: "));
+  Serial.print(event.temperature);
+  Serial.println(F("°C"));
+  dht.humidity().getEvent(&event);
+  Serial.print(F("  - Humidade: "));
+  Serial.print(event.relative_humidity);
+  Serial.println(F("%"));
+
+  Serial.print("  - mm total de chuva:");
+  Serial.println(mmTotal);
+
+    Serial.print("  - Wind Speed: ");
+  Serial.print(windSpeed);
+  Serial.println(" km/h ");
+
+  Serial.print("  - Velocidade do vento: ");
+data = analogRead(potPin);
+  if(data < 255){
+  Serial.println("N");
+}
+if(data > 255 && data < 600){
+  Serial.println("O");
+}
+if(data > 600 && data < 900){
+  Serial.println("S");
+}
+if(data > 900){
+  Serial.println("L");
+}
+
+  Serial.print("  - Tempo atual em segundos:");
+  Serial.println(seconds);
+  Serial.print("  - Tempo atual em minutos:");
+  Serial.println(minutes);
+  Serial.print("  - Tempo atual em horas:");
+  Serial.println(hours);
+  Serial.print("  - Tempo atual em dias:");
+  Serial.println(days);
+  Serial.println("|---------------------------|");
+
+  digitalWrite(ledRed, LOW);
+  digitalWrite(ledGreen, HIGH);
+  delay(75);
+  digitalWrite(ledGreen, LOW);
+  }
+  if(mode == 4 && (hours != lastHours)){
+
+    lastHours++;
+
+  sensors_event_t event;
+  dht.temperature().getEvent(&event);
+  Serial.print(F("  - Temperatura: "));
+  Serial.print(event.temperature);
+  Serial.println(F("°C"));
+  dht.humidity().getEvent(&event);
+  Serial.print(F("  - Humidade: "));
+  Serial.print(event.relative_humidity);
+  Serial.println(F("%"));
+
+  Serial.print("  - mm total de chuva:");
+  Serial.println(mmTotal);
+
+    Serial.print("  - Wind Speed: ");
+  Serial.print(windSpeed);
+  Serial.println(" km/h ");
+
+  Serial.print("  - Velocidade do vento: ");
+data = analogRead(potPin);
+  if(data < 255){
+  Serial.println("N");
+}
+if(data > 255 && data < 600){
+  Serial.println("O");
+}
+if(data > 600 && data < 900){
+  Serial.println("S");
+}
+if(data > 900){
+  Serial.println("L");
+}
+
+  Serial.print("  - Tempo atual em segundos:");
+  Serial.println(seconds);
+  Serial.print("  - Tempo atual em minutos:");
+  Serial.println(minutes);
+  Serial.print("  - Tempo atual em horas:");
+  Serial.println(hours);
+  Serial.print("  - Tempo atual em dias:");
+  Serial.println(days);
+  Serial.println("|---------------------------|");
+
+  digitalWrite(ledRed, LOW);
+  digitalWrite(ledGreen, HIGH);
+  delay(75);
+  digitalWrite(ledGreen, LOW);
+  }
+  if(mode == 5){
+
+  sensors_event_t event;
+  dht.temperature().getEvent(&event);
+  Serial.print(F("  - Temperatura: "));
+  Serial.print(event.temperature);
+  Serial.println(F("°C"));
+  dht.humidity().getEvent(&event);
+  Serial.print(F("  - Humidade: "));
+  Serial.print(event.relative_humidity);
+  Serial.println(F("%"));
+
+  Serial.print("  - mm total de chuva:");
+  Serial.println(mmTotal);
+
+    Serial.print("  - Velocidade do vento: ");
+  Serial.print(windSpeed);
+  Serial.println(" km/h ");
+
+  data = analogRead(potPin);
+Serial.print("  - Direção do vento: ");
+Serial.print(data);
+if(data < 255){
+  Serial.println("  N");
+}
+if(data > 255 && data < 600){
+  Serial.println("  O");
+}
+if(data > 600 && data < 900){
+  Serial.println("  S");
+}
+if(data > 900){
+  Serial.println("  L");
+}
+
+  Serial.print("  - Tempo atual em segundos:");
+  Serial.println(seconds);
+  Serial.print("  - Tempo atual em minutos:");
+  Serial.println(minutes);
+  Serial.print("  - Tempo atual em horas:");
+  Serial.println(hours);
+  Serial.print("  - Tempo atual em dias:");
+  Serial.println(days);
+  Serial.println("|---------------------------|");
+
+  digitalWrite(ledRed, LOW);
+  digitalWrite(ledGreen, HIGH);
+  delay(75);
+  digitalWrite(ledGreen, LOW);
+}
+}
+void measure() {
+  interruptCounter = 0;
+  attachInterrupt(digitalPinToInterrupt(sensor), countup, FALLING);
+  delay(1000 * recordTime);
+  detachInterrupt(digitalPinToInterrupt(sensor));
+  windSpeed = (float)interruptCounter / (float)recordTime*2.4;
+ }
+ void countup() {
+  interruptCounter++;
+ }
